@@ -64,6 +64,17 @@ python train.py \
     --save-dir path/to/model/checkpoints \
     --train-on-tiny # for testing purposes only
 ```
+OR
+
+```
+python train.py `
+--data data/en-sv/infopankki/prepared `
+--source-lang sv `
+--target-lang en `
+--save-dir assignments/01/baseline/checkpoints `
+--train-on-tiny
+```
+
 
 Notes:
 - `path/to/prepared/data` and `path/to/model/checkpoints`
@@ -83,10 +94,27 @@ python translate.py \
     --checkpoint-path path/to/model/checkpoint/file/for/loading \
     --output path/to/output/file/model/translations
 ```
+OR
+  
+```
+python translate.py `
+--data data/en-sv/infopankki/prepared `
+--dicts data/en-sv/infopankki/prepared `
+--checkpoint-path assignments/01/baseline/checkpoints/checkpoint_last.pt `
+--output assignments/01/baseline/infopankki_translations.txt
+```
 
 Postprocess model translations
 ```
 bash scripts/postprocess.sh path/to/output/file/model/translations path/to/postprocessed/model/translations/file en
+```
+
+OR
+
+```
+bash scripts/postprocess.sh `
+assignments/01/baseline/infopankki_translations.txt `
+assignments/01/baseline/infopankki_translations.p.txt en
 ```
 
 Score with SacreBLEU
@@ -94,8 +122,17 @@ Score with SacreBLEU
 cat path/to/postprocessed/model/translations/file | sacrebleu path/to/raw/target/test/file
 ```
 
+OR
+  
+```
+cat `
+assignments/01/baseline/infopankki_translations.p.txt `
+| sacrebleu data/en-sv/infopankki/raw/test.en
+```
+
 # Assignments
 
 Assignments must be submitted on OLAT by 14:00 on their respective
 due dates.
 
+ 
