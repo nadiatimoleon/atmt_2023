@@ -1,138 +1,170 @@
-# atmt code base
-Materials for "Advanced Techniques of Machine Translation".
-Please refer to the assignment sheet for instructions on how to use the toolkit.
+# Assignment 3: Improving Low-Resource NMT
+## Method 1: Byte Pair Encoding
 
-The toolkit is based on [this implementation](https://github.com/demelin/nmt_toolkit).
+We implemented Byte Pair Encoding (BPE) to improve the performance of the baseline model. 
+We used the subword-nmt library to train the BPE model on the training data and then applied the BPE model to the training, validation and test data.
+Then, we extract the vocabulary to be used by the neural network and train (1) a new model using the same hyperparameters as the baseline model (BPE_model). and (2) a new model using batch size equal to 100 (BPE_model_100), keeping the rest of the parameters the same as the baseline model.
+Finally, we run inference on the test data and evaluate the model using sacreBLEU.
+The cells below show the commands used to run each step of the process, differentiating between the two versions of the BPE model wherever necessary.
 
-# Environment Setup
-
-In case you prefer to run the code locally, we suggest creating a Python environment to prevent library clashes with future projects, using either Conda or virtualenv (Conda is suggested). For other options, see [supplementary material](https://neat-tortellini-10f.notion.site/ATMT-Autumn-2023-Assignment-1-Setup-Instructions-96d8444a7d7146139a5b76a86a559f5f?pvs=4)
-
-### conda
-
+### Data Preprocessing
+Here, we use a modified version of the original preprocessing script to apply BPE to the data.
 ```
-# ensure that you have conda (or miniconda) installed (https://conda.io/projects/conda/en/latest/user-guide/install/index.html) and that it is activated
-
-# create clean environment
-conda create --name atmt311 python=3.11
-
-# activate the environment
-conda activate atmt311
-
-# intall required packages
-conda install pytorch=2.0.1 numpy tqdm sacrebleu
+bash assignments/03/preprocess_data_bpe.sh
 ```
 
-### virtualenv
-
-```
-# ensure that you have python > 3.6 downloaded and installed (https://www.python.org/downloads/)
-
-# install virtualenv
-pip install virtualenv  # for both powershell and WSL
-
-# create a virtual environment named "atmt311"
-virtualenv --python=python3.11 atmt311  # on WSL terminal
-python -m venv atmt311    # on powershell
-
-# launch the newly created environment
-source atmt311/bin/activate
-.\atmt311\Scripts\Activate.ps1   # on powershell
-
-
-# intall required packages
-pip install torch==2.0.1 numpy tqdm sacrebleu   # for both powershell and WSL
-```
-
-<!-- # Data Preprocessing
-
-```
-# normalise, tokenize and truecase data
-bash scripts/extract_splits.sh ../infopankki_raw data/en-sv/infopankki/raw
-
-# binarize data for model training
-bash scripts/run_preprocessing.sh data/en-sv/infopankki/raw/
-``` -->
-
-# Training a model
-
-```
-python train.py \
-    --data path/to/prepared/data \
-    --source-lang en \
-    --target-lang sv \
-    --save-dir path/to/model/checkpoints \
-    --train-on-tiny # for testing purposes only
-```
-OR
-
+### Train model
+#### Batch size = 1
 ```
 python train.py `
---data data/en-sv/infopankki/prepared `
---source-lang sv `
+--data data/en-fr/bpe/prepared `
+--source-lang fr `
 --target-lang en `
---save-dir assignments/01/baseline/checkpoints `
---train-on-tiny
+--save-dir assignments/03/BPE_model/checkpoints
+```
+
+#### Batch size = 100
+```
+python train.py `
+--data data/en-fr/bpe/prepared `
+--source-lang fr `
+--target-lang en `
+--batch-size 100 `
+--save-dir assignments/03/BPE_model_100/checkpoints
 ```
 
 
-Notes:
-- `path/to/prepared/data` and `path/to/model/checkpoints`
-  are placholders, not true paths. Replace these arguments with the correct paths
-  for your system.
-- only use `--train-on-tiny` for testing. This will train a
-dummy model on the `tiny_train` split.
-- add the `--cuda` flag if you want to train on a GPU, e.g. using Google Colab
-
-# Evaluating a trained model
-
-Run inference on test set
-```
-python translate.py \
-    --data path/to/prepared/data \
-    --dicts path/to/prepared/data \
-    --checkpoint-path path/to/model/checkpoint/file/for/loading \
-    --output path/to/output/file/model/translations
-```
-OR
-  
+### Run inference
+#### Batch size = 1
 ```
 python translate.py `
---data data/en-sv/infopankki/prepared `
---dicts data/en-sv/infopankki/prepared `
---checkpoint-path assignments/01/baseline/checkpoints/checkpoint_last.pt `
---output assignments/01/baseline/infopankki_translations.txt
+--data data/en-fr/bpe/prepared `
+--dicts data/en-fr/bpe/prepared `
+--checkpoint-path assignments/03/BPE_model/checkpoints/checkpoint_last.pt `
+--output assignments/03/BPE_model/tatoeba_translations.txt
 ```
 
-Postprocess model translations
+#### Batch size = 100
 ```
-bash scripts/postprocess.sh path/to/output/file/model/translations path/to/postprocessed/model/translations/file en
-```
-
-OR
-
-```
-bash scripts/postprocess.sh `
-assignments/01/baseline/infopankki_translations.txt `
-assignments/01/baseline/infopankki_translations.p.txt en
+python translate.py `
+--data data/en-fr/bpe/prepared `
+--dicts data/en-fr/bpe/prepared `
+--checkpoint-path assignments/03/BPE_model_100/checkpoints/checkpoint_last.pt `
+--output assignments/03/BPE_model_100/tatoeba_translations.txt
 ```
 
-Score with SacreBLEU
+### Postprocessing
+#### Batch size = 1
 ```
-cat path/to/postprocessed/model/translations/file | sacrebleu path/to/raw/target/test/file
+cat assignments/03/BPE_model/tatoeba_translations.txt | sed -r 's/(@@ )|(@@ ?$)//g' | perl moses_scripts/detruecase.perl | perl moses_scripts/detokenizer.perl -q -l en > assignments/03/BPE_model/tatoeba_translations.p.txt
 ```
 
-OR
-  
+#### Batch size = 100
+```
+cat assignments/03/BPE_model_100/tatoeba_translations.txt | sed -r 's/(@@ )|(@@ ?$)//g' | perl moses_scripts/detruecase.perl | perl moses_scripts/detokenizer.perl -q -l en > assignments/03/BPE_model_100/tatoeba_translations.p.txt
+```
+
+### Evaluation
+#### Batch size = 1
 ```
 cat `
-assignments/01/baseline/infopankki_translations.p.txt `
-| sacrebleu data/en-sv/infopankki/raw/test.en
+assignments/03/BPE_model/tatoeba_translations.p.txt `
+| sacrebleu data/en-fr/raw/test.en
 ```
 
-# Assignments
+#### Batch size = 100
+```
+cat `
+assignments/03/BPE_model_100/tatoeba_translations.p.txt `
+| sacrebleu data/en-fr/raw/test.en
+```
 
-Assignments must be submitted on OLAT by 14:00 on their respective
-due dates.
+#### Batch size = 1
+```
+{
+ "name": "BLEU",
+ "score": 15.8,
+ "signature": "nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.3.1",
+ "verbose_score": "46.6/20.4/11.0/6.0 (BP = 1.000 ratio = 1.108 hyp_len = 4313 ref_len = 3892)",
+ "nrefs": "1",
+ "case": "mixed",
+ "eff": "no",
+ "tok": "13a",
+ "smooth": "exp",
+ "version": "2.3.1"
+}
+```
+#### Batch size = 100
+```
+{
+ "name": "BLEU",
+ "score": 17.1,
+ "signature": "nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.3.1",
+ "verbose_score": "50.3/22.0/12.0/6.4 (BP = 1.000 ratio = 1.004 hyp_len = 3908 ref_len = 3892)",
+ "nrefs": "1",
+ "case": "mixed",
+ "eff": "no",
+ "tok": "13a",
+ "smooth": "exp",
+ "version": "2.3.1"
+}
+```
 
- 
+## Method 2: Hyperparameter Tuning
+In a second attempt to improve the performance of the baseline model, we decided to tune the hyperparameters of the model.
+We therefore decided to use a smaller learning rate equal to $0.0001$ and an increased patience of $4$.
+
+
+### Data Preprocessing
+Here we use the same preprocessing script as in the baseline model.
+```
+bash assignments/03/preprocess_data.sh
+```
+
+### Train model
+```
+python train.py `
+--data data/en-fr/prepared `
+--source-lang fr `
+--target-lang en `
+--save-dir assignments/03/slow_model/checkpoints `
+--lr 0.0001 `
+--patience 4
+```
+
+### Run inference
+```
+python translate.py `
+--data data/en-fr/prepared `
+--dicts data/en-fr/prepared `
+--checkpoint-path assignments/03/slow_model/checkpoints/checkpoint_last.pt `
+--output assignments/03/slow_model/tatoeba_translations.txt
+```
+
+### Postprocessing
+```
+cat assignments/03/slow_model/tatoeba_translations.txt | perl moses_scripts/detruecase.perl | perl moses_scripts/detokenizer.perl -q -l en > assignments/03/slow_model/tatoeba_translations.p.txt 
+```
+
+### Evaluation
+```
+cat `
+assignments/03/slow_model/tatoeba_translations.p.txt `
+| sacrebleu data/en-fr/raw/test.en
+```
+
+The evaluation yielded the following results:
+```
+{
+ "name": "BLEU",
+ "score": 17.2,
+ "signature": "nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.3.1",
+ "verbose_score": "47.7/23.2/12.2/6.5 (BP = 1.000 ratio = 1.222 hyp_len = 4757 ref_len = 3892)",
+ "nrefs": "1",
+ "case": "mixed",
+ "eff": "no",
+ "tok": "13a",
+ "smooth": "exp",
+ "version": "2.3.1"
+}
+```
