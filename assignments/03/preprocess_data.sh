@@ -4,13 +4,13 @@
 set -e
 
 pwd=`dirname "$(readlink -f "$0")"`
-base=$pwd/../..
+
 src=fr
 tgt=en
-data=$base/data/$tgt-$src/
+data=data/$tgt-$src/
 
 # change into base directory to ensure paths are valid
-cd $base
+
 
 # create preprocessed directory
 mkdir -p $data/preprocessed/
