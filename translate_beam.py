@@ -30,6 +30,7 @@ def get_args():
 
     # Add beam search arguments
     parser.add_argument('--beam-size', default=5, type=int, help='number of hypotheses expanded in beam search')
+    parser.add_argument('--square-regularizer', default=0.0, type=float, help='lambda hyperparameter for square regularization')
     # alpha hyperparameter for length normalization (described as lp in https://arxiv.org/pdf/1609.08144.pdf equation 14)
     parser.add_argument('--alpha', default=0.0, type=float, help='alpha for softer length normalization')
 
@@ -107,6 +108,9 @@ def main(args):
                 log_p = torch.where(best_candidate == tgt_dict.unk_idx, backoff_log_p, best_log_p)
                 log_p = log_p[-1]
 
+                # compute the regularized log probability
+                log_p = log_p - args.square_regularizer * torch.pow(log_p, 2)
+
                 # Store the encoder_out information for the current input sentence and beam
                 emb = encoder_out['src_embeddings'][:,i,:]
                 lstm_out = encoder_out['src_out'][0][:,i,:]
@@ -162,6 +166,9 @@ def main(args):
                     log_p = torch.where(best_candidate == tgt_dict.unk_idx, backoff_log_p, best_log_p)
                     log_p = log_p[-1]
                     next_word = torch.cat((prev_words[i][1:], next_word[-1:]))
+
+                    # compute the regularized log probability
+                    log_p = log_p - args.square_regularizer * torch.pow(log_p, 2)
 
                     # Get parent node and beam search object for corresponding sentence
                     node = nodes[i]
